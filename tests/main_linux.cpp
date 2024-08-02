@@ -1,47 +1,10 @@
 #include <iostream>
 #include <thread>
 #include <memory>
+#include <iomanip>
+#include <sstream>
+#include <string>
 #include "OSCompatibleThread.h"
-#include <time.h>
-
-
-size_t Calc(size_t a, size_t b)
-{
-    size_t result = 0;
-    if(a < 100)
-    {
-        result += a + b;
-    }
-    else
-    {
-        result += b;
-    }
-    
-    return result;
-}
-
-
-
-
-void* Function1(void* arg)
-{
-    size_t cycles = 0;
-    size_t result = 1;
-    std::cout << "Function" << std::endl;
-
-    while(cycles < 1000)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
-        //std::cout << "thread no. " << std::to_string((size_t)arg) << " cycle: " <<
-        // std::to_string(cycles) << std::endl;
-        result = Calc(result, (size_t)arg);
-        ++cycles;
-    }
-    std::cout << "thread no. " << std::to_string((size_t)arg) << " val: " << 
-    std::to_string(result) << std::endl;
-
-    return NULL;
-}
 
 
 bool IsPrime(int n)
@@ -54,7 +17,23 @@ bool IsPrime(int n)
     return true;
 }
 
-void* Function2(void* arg)
+std::string NumberToString(size_t number, size_t digitsNum)
+{
+    std::stringstream ss;
+    ss << std::setw(digitsNum)  << number; // optional add << std::setfill('0') before number
+    return ss.str();
+}
+
+/**
+ * @brief This function is a worker function for each thread. It performs a heavy computation 
+ * by checking if numbers from 2 to 10,000,000 are prime. It also includes a sleep mechanism to 
+ * give the scheduler an opportunity to context switch to other threads.
+ *
+ * @param arg A void pointer to the argument passed to the thread. In this case, it's the thread number.
+ *
+ * @return A void pointer. In this case, it always returns NULL.
+ */
+void* Function(void* arg)
 {
     int count = 0;
     auto start = std::chrono::high_resolution_clock::now();
@@ -81,7 +60,7 @@ void* Function2(void* arg)
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
 
-    std::cout << "Thread no. " << std::to_string((size_t)arg) << 
+    std::cout << "Thread no. " << NumberToString((size_t)arg, 2) << 
     " finished with count: " << count << " in " << elapsed.count() << " seconds." << std::endl;
 
     return NULL;
@@ -89,18 +68,19 @@ void* Function2(void* arg)
 
 
 
-
-
+const size_t SLOW_THREADS_NUM = 2;
 const size_t THREADS_NUM = 20;
-const size_t SLOW_THREADS_NUM = 18;
+
 
 
 
 int main(void)
 {
     size_t i = 1;
-    int policy = SCHED_FIFO;// SCHED_FIFO, SCHED_RR;
-    int priority = (sched_get_priority_max(policy) + sched_get_priority_min(policy)) / 2;
+    int policy = SCHED_FIFO; // SCHED_FIFO, SCHED_RR;
+    int min_policy = sched_get_priority_min(policy);
+    int max_policy = sched_get_priority_max(policy);
+    int priority = (max_policy + min_policy) / 2;
     std::shared_ptr<OSCompatibleThread> threads[THREADS_NUM];
 
 
@@ -111,9 +91,9 @@ int main(void)
     }
 
     // Init and run slow threads
-    for(i = 1; i <= SLOW_THREADS_NUM; i++)
+    for(i = 0; i < SLOW_THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function2, (void*)i, sched_get_priority_max(policy), policy, std::vector<bool>{1,1,1,1}) )
+        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,0,0,0}) )
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
@@ -121,16 +101,16 @@ int main(void)
 
     // Init and run the rest of the threads the with the fast configuration
     // (priority and more cores selected)
-    for( ; i <= THREADS_NUM; i++)
+    for( ; i < THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function2, (void*)i, sched_get_priority_max(policy), policy, std::vector<bool>{1,1,1,1}) )
+        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,1,1,1}) )
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
     }
 
-
-    for(i = 1; i <= THREADS_NUM; i++)
+    // Join threads
+    for(i = 0; i < THREADS_NUM; i++)
     {
         if( threads[i]->Join(nullptr) )
         {
