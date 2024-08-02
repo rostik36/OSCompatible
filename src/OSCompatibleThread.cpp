@@ -109,7 +109,6 @@ OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(os_thread_func_t func,
         LoadErrMsg("Error thread already initialized");
         return OSCompatibleThread::ReturnStatus::FAILED_THREAD_ALREADY_INITIALIZED;
     }
-    std::cout << "Creating thread" << std::endl;
 
     if(pthread_attr_init(&m_attributes) != 0)
     {

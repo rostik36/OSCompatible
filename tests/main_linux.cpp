@@ -56,34 +56,33 @@ bool IsPrime(int n)
 
 void* Function2(void* arg)
 {
-    // auto start = std::chrono::high_resolution_clock::now();
-    clock_t begin = clock();
+    int count = 0;
+    auto start = std::chrono::high_resolution_clock::now();
 
     // Simulate work by performing a heavy computation
-    int count = 0;
-    for (int i = 2; i < 1000000; ++i)
+    for (int i = 2; i < 10000000; ++i)
     {
         if (IsPrime(i))
         {
             ++count;
         }
+
+        // each 50 iterations, sleep for a short duration to give scheduler 
+        // option to context switch to other threads
         if(i%50 == 0)
         {
-            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // must use duration in 'microseconds' else it will not work as expected
+            // it will give other threads a chance to run and finish before the sleep
+            // will end.
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
     }
 
-    // auto end = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double> elapsed = end - start;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
 
-    // std::cout << "Thread no. " << std::to_string((size_t)arg) << 
-    // " finished with count: " << count << " in " << elapsed.count() << " seconds." << std::endl;
-
-    clock_t end = clock();
-    double time_spent = (double)(end - begin);
     std::cout << "Thread no. " << std::to_string((size_t)arg) << 
-    " finished with count: " << count << " in " << time_spent << " seconds." << std::endl;
-
+    " finished with count: " << count << " in " << elapsed.count() << " seconds." << std::endl;
 
     return NULL;
 }
@@ -93,16 +92,17 @@ void* Function2(void* arg)
 
 
 const size_t THREADS_NUM = 20;
-const size_t LIGHT_WEIGHT_THREADS_NUM = 18;
+const size_t SLOW_THREADS_NUM = 18;
 
 
 
 int main(void)
 {
-    std::shared_ptr<OSCompatibleThread> threads[THREADS_NUM];
-    size_t i = 1; // SCHED_RR
-    int policy = SCHED_FIFO;
+    size_t i = 1;
+    int policy = SCHED_FIFO;// SCHED_FIFO, SCHED_RR;
     int priority = (sched_get_priority_max(policy) + sched_get_priority_min(policy)) / 2;
+    std::shared_ptr<OSCompatibleThread> threads[THREADS_NUM];
+
 
     // Allocate threads
     for(i = 0; i < THREADS_NUM; i++)
@@ -110,17 +110,17 @@ int main(void)
         threads[i] = std::make_shared<OSCompatibleThread>();
     }
 
-
-
-
-    for(i = 1; i <= LIGHT_WEIGHT_THREADS_NUM; i++)
+    // Init and run slow threads
+    for(i = 1; i <= SLOW_THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function2, (void*)i, sched_get_priority_min(policy), policy, std::vector<bool>{1,0,0,0}) )
+        if( threads[i]->Init(Function2, (void*)i, sched_get_priority_max(policy), policy, std::vector<bool>{1,1,1,1}) )
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
     }
 
+    // Init and run the rest of the threads the with the fast configuration
+    // (priority and more cores selected)
     for( ; i <= THREADS_NUM; i++)
     {
         if( threads[i]->Init(Function2, (void*)i, sched_get_priority_max(policy), policy, std::vector<bool>{1,1,1,1}) )
