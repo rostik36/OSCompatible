@@ -1,0 +1,17 @@
+*
+
+!*.h
+!*.cpp
+
+!include
+!src
+!tests
+!CMakeLists.txt
+
+!.vscode
+!.vscode/*
+
+
+!README.md
+
+!.gitignore

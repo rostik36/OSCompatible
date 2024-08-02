@@ -1,7 +1,7 @@
 {
     "tasks": [
         {
-            "label": "build",
+            "label": "build for linux",
             "type": "shell",
             "command": "/usr/bin/g++",
             "args": [
@@ -9,8 +9,29 @@
                 "-g",
                 "-I${workspaceFolder}/include",
                 "${workspaceFolder}/src/*.cpp",
+                "${workspaceFolder}/test/main_linux.cpp",
                 "-o",
-                "${workspaceFolder}/OSCompatibleThread"
+                "${workspaceFolder}/main_linux"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+        },
+        { // TODO: correct config for windows
+            "label": "build for windows",
+            "type": "shell",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "-I${workspaceFolder}/include",
+                "${workspaceFolder}/src/*.cpp",
+                "${workspaceFolder}/test/main_windows.cpp",
+                "-o",
+                "${workspaceFolder}/main_windows"
             ],
             "options": {
                 "cwd": "${fileDirname}"

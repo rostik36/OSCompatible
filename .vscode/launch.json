@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch with sudo",
+            "name": "Debug (Linux)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/OSCompatbleThread",
+            "program": "${workspaceFolder}/main_linux",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -19,7 +19,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "build",
+            "preLaunchTask": "build for linux",
             // "miDebuggerPath": "/home/pcr/.configurations/gdb",
             // "logging": {
             //     "moduleLoad": false,
@@ -30,7 +30,42 @@
             // },
             "linux": {
                 "miDebuggerPath": "/home/pcr/.configurations/gdb",
-                "program": "${workspaceFolder}/OSCompatibleThread"
+                "program": "${workspaceFolder}/main_linux"
+            },
+            "windows": {
+                "MIMode": "gdb"
+            }
+        },
+        { // TODO: correct the following configuration for windows
+            "name": "Debug (windows)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/main_windows",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build for windows",
+            // "miDebuggerPath": "/home/pcr/.configurations/gdb",
+            // "logging": {
+            //     "moduleLoad": false,
+            //     "trace": false,
+            //     "engineLogging": false,
+            //     "programOutput": true,
+            //     "exceptions": false
+            // },
+            "linux": {
+                "miDebuggerPath": "/home/pcr/.configurations/gdb",
+                "program": "${workspaceFolder}/main_windows"
             },
             "windows": {
                 "MIMode": "gdb"
