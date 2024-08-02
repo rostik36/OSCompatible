@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch with sudo",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/OSCompatbleThread",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build",
+            // "miDebuggerPath": "/home/pcr/.configurations/gdb",
+            // "logging": {
+            //     "moduleLoad": false,
+            //     "trace": false,
+            //     "engineLogging": false,
+            //     "programOutput": true,
+            //     "exceptions": false
+            // },
+            "linux": {
+                "miDebuggerPath": "/home/pcr/.configurations/gdb",
+                "program": "${workspaceFolder}/OSCompatibleThread"
+            },
+            "windows": {
+                "MIMode": "gdb"
+            }
+        }
+    ]
+}
