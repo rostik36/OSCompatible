@@ -9,7 +9,7 @@
                 "-g",
                 "-I${workspaceFolder}/include",
                 "${workspaceFolder}/src/*.cpp",
-                "${workspaceFolder}/test/main_linux.cpp",
+                "${workspaceFolder}/tests/main_linux.cpp",
                 "-o",
                 "${workspaceFolder}/main_linux"
             ],
@@ -29,7 +29,7 @@
                 "-g",
                 "-I${workspaceFolder}/include",
                 "${workspaceFolder}/src/*.cpp",
-                "${workspaceFolder}/test/main_windows.cpp",
+                "${workspaceFolder}/tests/main_windows.cpp",
                 "-o",
                 "${workspaceFolder}/main_windows"
             ],
