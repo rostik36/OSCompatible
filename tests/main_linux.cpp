@@ -46,14 +46,14 @@ void* Function(void* arg)
             ++count;
         }
 
-        // each 50 iterations, sleep for a short duration to give scheduler 
+        // each 1000 iterations, sleep for a short duration to give scheduler 
         // option to context switch to other threads
-        if(i%50 == 0)
+        if(i%1000 == 0)
         {
             // must use duration in 'microseconds' else it will not work as expected
             // it will give other threads a chance to run and finish before the sleep
             // will end.
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
+            std::this_thread::sleep_for(std::chrono::microseconds(5));
         }
     }
 
@@ -103,7 +103,7 @@ int main(void)
     // (priority and more cores selected)
     for( ; i < THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,1,1,1}) )
+        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,1,0,0}) )
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
