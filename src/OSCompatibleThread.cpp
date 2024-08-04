@@ -172,34 +172,34 @@ int OSCompatibleThread::GetId() const
 
 
 
-OSCompatibleThread::ReturnStatus OSCompatibleThread::Join(void* returnValue)
-{
-    int status;
+// OSCompatibleThread::ReturnStatus OSCompatibleThread::Join(void* returnValue)
+// {
+//     int status;
 
-    if(!m_isInitialized)
-    {
-        LoadErrMsg("Error thread not initialized");
-        return OSCompatibleThread::ReturnStatus::FAILED_THREAD_NOT_INITIALIZED;
-    }
+//     if(!m_isInitialized)
+//     {
+//         LoadErrMsg("Error thread not initialized");
+//         return OSCompatibleThread::ReturnStatus::FAILED_THREAD_NOT_INITIALIZED;
+//     }
 
-    if(returnValue)
-    {
-        status = pthread_join(m_thread, &returnValue);
-    }
-    else
-    {
-        status = pthread_join(m_thread, NULL);
-    }
+//     if(returnValue)
+//     {
+//         status = pthread_join(m_thread, &returnValue);
+//     }
+//     else
+//     {
+//         status = pthread_join(m_thread, NULL);
+//     }
 
-    if(status != 0)
-    {
-        LoadErrMsg("Error joining thread");
-        return OSCompatibleThread::ReturnStatus::FAILED_JOIN_THREAD;
-    }
+//     if(status != 0)
+//     {
+//         LoadErrMsg("Error joining thread");
+//         return OSCompatibleThread::ReturnStatus::FAILED_JOIN_THREAD;
+//     }
 
-    return FreeNDestroy();
-}
-;
+//     return FreeNDestroy();
+// }
+
 
 /* -------------------- Private functions implementations ------------------- */
 

@@ -131,7 +131,26 @@ public:
      * @return ReturnStatus indicating the success or failure of joining the 
      * thread.
      */
-    ReturnStatus Join(void* returnValue);
+    template <typename T>
+    ReturnStatus Join(T* returnValue);
+
+    ReturnStatus Join() {
+        int status;
+
+        if (!m_isInitialized) {
+            LoadErrMsg("Error thread not initialized");
+            return ReturnStatus::FAILED_THREAD_NOT_INITIALIZED;
+        }
+
+        status = pthread_join(m_thread, nullptr);
+
+        if (status != 0) {
+            LoadErrMsg("Error joining thread");
+            return ReturnStatus::FAILED_JOIN_THREAD;
+        }
+
+        return FreeNDestroy();
+    }
 
     /**
      * @brief Wait for the thread to finish or timeout, and retrieve its return 
@@ -239,10 +258,10 @@ private:
         std::get<0>(*funcTuple)(std::get<I + 1>(*funcTuple)...);
     }
 
-    template <typename Callable, typename Tuple>
-    static void callFunc(Tuple* funcTuple) {
+    template <typename Ret, typename Callable, typename Tuple>
+    static Ret callFunc(Tuple* funcTuple) {
         constexpr size_t size = std::tuple_size<Tuple>::value;
-        callFuncImpl<Callable>(funcTuple, std::make_index_sequence<size - 1>{});
+        return callFuncImpl<Ret, Callable>(funcTuple, std::make_index_sequence<size - 1>{});
     }
 
 
@@ -306,10 +325,25 @@ OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(int priority, int poli
 
     auto lambda = [](void* arg) -> void* {
         auto funcArgsPtr = static_cast<FuncTuple*>(arg);
-        callFunc<Callable>(funcArgsPtr);
+        void* ret = callFunc<void*, Callable>(funcArgsPtr);
         delete funcArgsPtr;
-        return nullptr;
+        return ret;
     };
+
+    // auto lambda = [](void* arg) -> void* {
+    //     auto funcArgsPtr = static_cast<FuncTuple*>(arg);
+    //     auto& func = std::get<0>(*funcArgsPtr);
+    //     auto result = std::apply([&func](auto&&... args) -> decltype(auto) {
+    //         return func(std::forward<decltype(args)>(args)...);
+    //     }, myTuple);
+        
+    //     delete funcArgsPtr;
+        
+    //     // To ensure the return type is handled properly, cast the result
+    //     using ReturnType = decltype(result);
+    //     ReturnType* returnValuePtr = new ReturnType(result);
+    //     return static_cast<void*>(returnValuePtr);
+    // };
 
     if((status = pthread_create(&m_thread, &m_attributes, lambda, funcArgs)) != 0) {
         if(status == EPERM) {
@@ -324,5 +358,41 @@ OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(int priority, int poli
     m_isInitialized = true;
     return ReturnStatus::SUCCESS;
 }
+
+
+
+template <typename T>
+OSCompatibleThread::ReturnStatus OSCompatibleThread::Join(T* returnValue)
+{
+    void* tempResult = nullptr;
+    int status;
+
+    if (!m_isInitialized) {
+        LoadErrMsg("Error thread not initialized");
+        return ReturnStatus::FAILED_THREAD_NOT_INITIALIZED;
+    }
+
+    status = pthread_join(m_thread, &tempResult);
+
+    if (status != 0) {
+        LoadErrMsg("Error joining thread");
+        return ReturnStatus::FAILED_JOIN_THREAD;
+    }
+
+    if (returnValue) {
+        *returnValue = *static_cast<T*>(tempResult);
+    }
+
+    return FreeNDestroy();
+}
+
+
+
+
+
+
+
+
+
 
 #endif //__OS_COMPATIBLE_THREAD__
