@@ -39,7 +39,7 @@ void* Function(void* arg)
     auto start = std::chrono::high_resolution_clock::now();
 
     // Simulate work by performing a heavy computation
-    for (int i = 2; i < 10000000; ++i)
+    for (int i = 2; i < 100000; ++i)
     {
         if (IsPrime(i))
         {
@@ -67,6 +67,11 @@ void* Function(void* arg)
 }
 
 
+void Function1(int a, double b, int c)
+{
+    std::cout << "Function with arguments: a=" << a << ", b=" << b << ", c=" << c << std::endl;
+}
+
 
 const size_t SLOW_THREADS_NUM = 2;
 const size_t THREADS_NUM = 20;
@@ -93,7 +98,7 @@ int main(void)
     // Init and run slow threads
     for(i = 0; i < SLOW_THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,0,0,0}) )
+        if( threads[i]->Init(max_policy, policy, {1,0,0,0}, Function, (void*)(i+1)) ) 
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
@@ -103,11 +108,12 @@ int main(void)
     // (priority and more cores selected)
     for( ; i < THREADS_NUM; i++)
     {
-        if( threads[i]->Init(Function, (void*)(i+1), max_policy, policy, {1,1,0,0}) )
+        if( threads[i]->Init(max_policy, policy, {1,1,0,0}, Function, (void*)(i+1)) )
         {
             std::cout << threads[i]->GetErrMsg() << std::endl;
         }
     }
+
 
     // Join threads
     for(i = 0; i < THREADS_NUM; i++)

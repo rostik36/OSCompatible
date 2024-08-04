@@ -29,8 +29,11 @@
 #ifndef __OS_COMPATIBLE_THREAD__
 #define __OS_COMPATIBLE_THREAD__
 
+#include <functional>
 #include <vector>
 #include <string>
+
+#include <cstring> // for strerror
 
 #ifdef _WIN32
 #include <windows.h>
@@ -115,8 +118,10 @@ public:
      *         - FAILED_NO_CPU_CORES_FLAGGED: No CPU cores were flagged for assignment.
      *         - FAILED_THREAD_ALREADY_INITIALIZED: The thread was already initialized and started.
      */
-    ReturnStatus Init(os_thread_func_t func, void* funcArgs, int priority, 
-                        int policy, const std::vector<bool>& cores);
+    template<typename Callable, typename... Args>
+    ReturnStatus Init(int priority, int policy,
+                    const std::vector<bool>& cores,
+                    Callable&& func, Args&&... args);
 
     /**
      * @brief Wait for the thread to finish and retrieve its return value.
@@ -227,6 +232,24 @@ private:
     void LoadErrMsg(const std::string& errMsg);
 
 
+
+    // Helper function to call the function with the correct arguments
+    template <typename Callable, typename Tuple, size_t... I>
+    static void callFuncImpl(Tuple* funcTuple, std::index_sequence<I...>) {
+        std::get<0>(*funcTuple)(std::get<I + 1>(*funcTuple)...);
+    }
+
+    template <typename Callable, typename Tuple>
+    static void callFunc(Tuple* funcTuple) {
+        constexpr size_t size = std::tuple_size<Tuple>::value;
+        callFuncImpl<Callable>(funcTuple, std::make_index_sequence<size - 1>{});
+    }
+
+
+
+
+
+
     // struct WrapperData {
     //     os_thread_func_t func;
     //     void* funcArgs;
@@ -241,5 +264,65 @@ private:
     bool m_isInitialized; // true if Init() was called successfully
 };
 
+
+
+
+// The implementation of the Init function template
+template <typename Callable, typename... Args>
+OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(int priority, int policy, const std::vector<bool>& cores, Callable&& func, Args&&... args) {
+    int status;
+
+    if(m_isInitialized) {
+        LoadErrMsg("Error thread already initialized");
+        return ReturnStatus::FAILED_THREAD_ALREADY_INITIALIZED;
+    }
+
+    if(pthread_attr_init(&m_attributes) != 0) {
+        LoadErrMsg("Error initializing thread attributes");
+        return ReturnStatus::FAILED_INITIALIZE_THREAD;
+    }
+
+    if(pthread_attr_setinheritsched(&m_attributes, PTHREAD_EXPLICIT_SCHED) != 0) {
+        LoadErrMsg("Error setting thread inheritance attribute");
+        return ReturnStatus::FAILED_SET_INHERIT_SCHED;
+    }
+
+    if(SetPolicy(policy)) {
+        LoadErrMsg("Error setting thread policy");
+        return ReturnStatus::FAILED_SET_POLICY;
+    }
+
+    if(SetPriority(priority)) {
+        LoadErrMsg("Error setting thread priority");
+        return ReturnStatus::FAILED_SET_PRIORITY;
+    }
+
+    if(SetCPUcores(cores)) {
+        return ReturnStatus::FAILED_SET_CPU_CORES;
+    }
+
+    using FuncTuple = std::tuple<Callable, Args...>;
+    auto funcArgs = new FuncTuple(std::forward<Callable>(func), std::forward<Args>(args)...);
+
+    auto lambda = [](void* arg) -> void* {
+        auto funcArgsPtr = static_cast<FuncTuple*>(arg);
+        callFunc<Callable>(funcArgsPtr);
+        delete funcArgsPtr;
+        return nullptr;
+    };
+
+    if((status = pthread_create(&m_thread, &m_attributes, lambda, funcArgs)) != 0) {
+        if(status == EPERM) {
+            LoadErrMsg("Error creating thread, No permission to set the scheduling policy run with permission.");
+        } else {
+            LoadErrMsg(std::string("Error creating thread, status: ") + std::string(strerror(status)));
+        }
+        delete funcArgs;
+        return ReturnStatus::FAILED_INITIALIZE_THREAD;
+    }
+
+    m_isInitialized = true;
+    return ReturnStatus::SUCCESS;
+}
 
 #endif //__OS_COMPATIBLE_THREAD__

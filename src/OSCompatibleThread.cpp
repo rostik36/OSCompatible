@@ -96,69 +96,79 @@ int OSCompatibleThread::GetId() const
 
 
 
-OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(os_thread_func_t func,
-                                    void* funcArgs,
-                                    int priority,
-                                    int policy,
-                                    const std::vector<bool>& cores)
-{
-    int status;
+// template<typename Callable, typename... Args>
+// OSCompatibleThread::ReturnStatus OSCompatibleThread::Init(int priority, int policy,
+//                                                         const std::vector<bool>& cores,
+//                                                         Callable&& func, Args&&... args)
+// {
+//     int status;
 
-    if(m_isInitialized)
-    {
-        LoadErrMsg("Error thread already initialized");
-        return OSCompatibleThread::ReturnStatus::FAILED_THREAD_ALREADY_INITIALIZED;
-    }
+//     if(m_isInitialized)
+//     {
+//         LoadErrMsg("Error thread already initialized");
+//         return OSCompatibleThread::ReturnStatus::FAILED_THREAD_ALREADY_INITIALIZED;
+//     }
 
-    if(pthread_attr_init(&m_attributes) != 0)
-    {
-        LoadErrMsg("Error initializing thread attributes");
-        return OSCompatibleThread::ReturnStatus::FAILED_INITIALIZE_THREAD;
-    }
+//     if(pthread_attr_init(&m_attributes) != 0)
+//     {
+//         LoadErrMsg("Error initializing thread attributes");
+//         return OSCompatibleThread::ReturnStatus::FAILED_INITIALIZE_THREAD;
+//     }
 
-    // Set the scheduling parameter inheritance attribute to EXPLICIT
-    // PTHREAD_INHERIT_SCHED: The thread inherits scheduling parameters from the parent thread.
-    // PTHREAD_EXPLICIT_SCHED: Scheduling parameters must be explicitly set before creating the thread.
-    if (pthread_attr_setinheritsched(&m_attributes, PTHREAD_EXPLICIT_SCHED) != 0)
-    {
-        LoadErrMsg("Error setting thread inheritance attribute");
-        return OSCompatibleThread::ReturnStatus::FAILED_SET_INHERIT_SCHED;
-    }
+//     // Set the scheduling parameter inheritance attribute to EXPLICIT
+//     // PTHREAD_INHERIT_SCHED: The thread inherits scheduling parameters from the parent thread.
+//     // PTHREAD_EXPLICIT_SCHED: Scheduling parameters must be explicitly set before creating the thread.
+//     if (pthread_attr_setinheritsched(&m_attributes, PTHREAD_EXPLICIT_SCHED) != 0)
+//     {
+//         LoadErrMsg("Error setting thread inheritance attribute");
+//         return OSCompatibleThread::ReturnStatus::FAILED_SET_INHERIT_SCHED;
+//     }
 
-    if(SetPolicy(policy))
-    {
-        LoadErrMsg("Error setting thread policy");
-        return OSCompatibleThread::ReturnStatus::FAILED_SET_POLICY;
-    }
+//     if(SetPolicy(policy))
+//     {
+//         LoadErrMsg("Error setting thread policy");
+//         return OSCompatibleThread::ReturnStatus::FAILED_SET_POLICY;
+//     }
 
-    if(SetPriority(priority))
-    {
-        LoadErrMsg("Error setting thread priority");
-        return OSCompatibleThread::ReturnStatus::FAILED_SET_PRIORITY;
-    }
+//     if(SetPriority(priority))
+//     {
+//         LoadErrMsg("Error setting thread priority");
+//         return OSCompatibleThread::ReturnStatus::FAILED_SET_PRIORITY;
+//     }
 
-    if(SetCPUcores(cores))
-    {
-        return OSCompatibleThread::ReturnStatus::FAILED_SET_CPU_CORES;
-    }
+//     if(SetCPUcores(cores))
+//     {
+//         return OSCompatibleThread::ReturnStatus::FAILED_SET_CPU_CORES;
+//     }
+//     auto funcArgs = new std::tuple<Callable, Args...>(std::forward<Callable>(func), std::forward<Args>(args)...);
 
-    if( (status = pthread_create(&m_thread, &m_attributes, func, funcArgs)) != 0)
-    {
-        if(status == EPERM)
-        {
-            LoadErrMsg("Error creating thread, No permission to set the scheduling policy run with permission.");
-        }
-        else
-        {
-            LoadErrMsg(std::string("Error creating thread, status: ") + std::string(strerror(status)));
-        }
-        return OSCompatibleThread::ReturnStatus::FAILED_INITIALIZE_THREAD;
-    }
+//     auto lambda = [](void* arg) -> void* {
+//         auto funcArgsPtr = static_cast<std::tuple<Callable, Args...>*>(arg);
+//         callFunc(funcArgsPtr);
+//         delete funcArgsPtr;
+//         return nullptr;
+//     };
+//     //, new std::pair<Callable, std::tuple<Args...>>(std::forward<Callable>(func), std::forward<Args>(args)...)
+//     if( (status = pthread_create( &m_thread, &m_attributes, lambda, 
+//                                     new std::pair<Callable, std::tuple<Args...>>(
+//                                         std::forward<Callable>(func),
+//                                         std::forward<Args>(args)...) )) != 0)
+//     {
+//         if(status == EPERM)
+//         {
+//             LoadErrMsg("Error creating thread, No permission to set the scheduling policy run with permission.");
+//         }
+//         else
+//         {
+//             LoadErrMsg(std::string("Error creating thread, status: ") + std::string(strerror(status)));
+//         }
+//         return OSCompatibleThread::ReturnStatus::FAILED_INITIALIZE_THREAD;
+//     }
 
-    m_isInitialized = true;
+//     m_isInitialized = true;
 
-    return OSCompatibleThread::ReturnStatus::SUCCESS;
-}
+//     return OSCompatibleThread::ReturnStatus::SUCCESS;
+// }
 
 
 
