@@ -11,11 +11,24 @@
 #ifndef __OS_COMPATIBLE_THREAD__
 #define __OS_COMPATIBLE_THREAD__
 
-
-#include <pthread.h>
 #include <functional>
 #include <future>
 #include <any>
+
+
+#ifdef _WIN32       // Windows
+#include <windows.h>
+#else               // Linux
+#include <pthread.h>
+#endif
+
+// Define handle ThreadId type based on the operating system
+#ifdef _WIN32       // Windows
+typedef DWORD       ThreadId;
+#else               // Linux
+typedef pthread_t   ThreadId;
+#endif
+
 
 class OSCompatibleThread
 {
@@ -56,13 +69,7 @@ public:
      * @note The std::promise and std::future are used to handle the return 
      * value (if any) from the thread function.
      */
-    OSCompatibleThread(): 
-            m_thread(),
-            m_func(nullptr),
-            m_promise(std::make_shared<std::promise<std::any>>()),
-            m_future(m_promise->get_future()),
-            m_properties(DEFAULT_PROPERTIES)
-        {}
+    OSCompatibleThread();
 
 
     /**
@@ -107,6 +114,46 @@ public:
     OSCompatibleThread(Function&& func, Args&&... args);
 
 
+    /**
+     * @brief Constructor for the OSCompatibleThread class that takes a function,
+     *  its arguments, and thread properties.
+     *
+     * This constructor creates a new thread with the provided properties and 
+     * executes the provided function
+     * with the given arguments. The function's return value (if any) is 
+     * captured and stored in a std::future for later retrieval.
+     *
+     * @tparam Function The type of the function to be executed in the new thread.
+     * @tparam Args The types of the arguments to be passed to the function.
+     * @param properties The properties for the new thread, including priority,
+     *  policy, and CPU affinity.
+     * @param func The function to be executed in the new thread.
+     * @param args The arguments to be passed to the function.
+     *
+     * @throws std::runtime_error If the thread cannot be created or if no 
+     * function is provided.
+     *
+     * @note The function and its arguments are stored in a std::function object
+     *  and bound to the new thread.
+     * The std::function object is then wrapped in a lambda function that catches
+     *  any exceptions thrown during
+     * the execution of the provided function and sets the corresponding 
+     * std::promise with the exception.
+     *
+     * @note If the function's return type is void, an empty std::any is set as 
+     * the promise's value.
+     * Otherwise, the function's return value is wrapped in a std::any and set 
+     * as the promise's value.
+     *
+     * @note The new thread is created using the pthread_create function, and 
+     * the threadFuncWrapper is
+     * used as the thread's entry point. The threadFuncWrapper function calls 
+     * the stored std::function
+     * object and cleans up any allocated resources.
+     *
+     * @note The constructor is marked as a template function to support 
+     * functions with different argument types.
+     */
     template <typename Function, typename... Args>
     OSCompatibleThread(const Properties& properties, Function&& func, Args&&... args);
 
@@ -124,34 +171,10 @@ public:
      * @param other The other OSCompatibleThread object from which to move the resources.
      * @throws No exceptions are thrown by this constructor.
      */
-    OSCompatibleThread(OSCompatibleThread&& other) noexcept
-        :
-        m_thread(other.thread_),
-        m_func(std::move(other.m_func)),
-        m_promise(std::move(other.m_promise)),
-        m_future(std::move(other.m_future))
-    {
-        other.thread_ = pthread_t();
-    }
+    OSCompatibleThread(OSCompatibleThread&& other) noexcept;
 
 
-    OSCompatibleThread& operator=(OSCompatibleThread&& other) noexcept
-    {
-        if (this != &other)
-        {
-            if (joinable())
-            {
-                join();
-            }
-
-            m_thread = other.m_thread;
-            m_func = std::move(other.m_func);
-            m_promise = std::move(other.m_promise);
-            m_future = std::move(other.m_future);
-            other.m_thread = pthread_t(); // Reset other's thread handle
-        }
-        return *this;
-    }
+    OSCompatibleThread& operator=(OSCompatibleThread&& other) noexcept;
 
 
     /**
@@ -167,15 +190,7 @@ public:
      * @note After a successful join, the thread handle (m_thread) is reset to
      * pthread_t(), indicating that the thread is no longer joinable.
      */
-    void join()
-    {
-        if (pthread_join(m_thread, nullptr) != 0)
-        {
-            throw std::runtime_error("Failed to join thread");
-        }
-        m_thread = pthread_t(); // Reset the thread handle
-    }
-
+    void join();
 
 
     /**
@@ -194,14 +209,7 @@ public:
      * @note After detaching a thread, the thread handle (m_thread) is reset to
      * pthread_t(), indicating that the thread is no longer joinable.
      */
-    void detach()
-    {
-        if (pthread_detach(m_thread) != 0)
-        {
-            throw std::runtime_error("Failed to detach thread");
-        }
-        m_thread = pthread_t(); // Reset the thread handle
-    }
+    void detach();
 
     
     /**
@@ -220,10 +228,7 @@ public:
      *
      * @note The default constructed OSCompatibleThread object is not joinable.
      */
-    bool joinable() const
-    {
-        return m_thread != pthread_t();
-    }
+    bool joinable() const;
 
 
     /**
@@ -252,10 +257,7 @@ public:
      *
      * @see std::future, std::promise, std::any
      */
-    std::any getResult()
-    {
-        return m_future.get();
-    }
+    std::any getResult();
 
 private:
     // Wrapper function to be passed to pthread_create
@@ -267,7 +269,7 @@ private:
         return nullptr;
     }
 
-    pthread_t m_thread;
+    ThreadId m_thread; // Thread handle
     std::function<void()> m_func;
     // used for the return value (if exists)
     std::shared_ptr<std::promise<std::any>> m_promise;
@@ -308,6 +310,7 @@ OSCompatibleThread::OSCompatibleThread(Function&& func, Args&&... args)
     if (m_func)
     {
         auto m_funcptr = new std::function<void()>(std::move(m_func));
+        
         if (pthread_create(&thread_, nullptr, threadFuncWrapper, m_funcptr) != 0)
         {
             delete m_funcptr; // Clean up in case of error
@@ -356,11 +359,16 @@ OSCompatibleThread::OSCompatibleThread(const Properties& properties, Function&& 
     if (m_func)
     {
         auto m_funcptr = new std::function<void()>(std::move(m_func));
+        #ifdef _WIN32   // Windows
+
+        #else
         if (pthread_create(&thread_, nullptr, threadFuncWrapper, m_funcptr) != 0)
         {
             delete m_funcptr; // Clean up in case of error
             throw std::runtime_error("Failed to create thread");
         }
+        #endif
+
     }
     else
     {
