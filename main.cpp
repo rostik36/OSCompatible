@@ -4,9 +4,15 @@
 #include <functional>
 #include <future>
 
+
+
+
+
+
 // Utility to convert any callable to void*(*)(void*)
 template <typename ReturnType>
-void* threadFuncWrapper(void* arg) {
+void* threadFuncWrapper(void* arg)
+{
     // Cast the argument back to a unique_ptr to manage its lifetime
     std::unique_ptr<std::packaged_task<ReturnType()>> task(static_cast<std::packaged_task<ReturnType()>*>(arg));
     // Execute the task
@@ -15,12 +21,14 @@ void* threadFuncWrapper(void* arg) {
 }
 
 template <typename Function, typename... Args>
-class ThreadWrapper {
+class ThreadWrapper
+{
 public:
     using ReturnType = std::result_of_t<Function(Args...)>;
 
     ThreadWrapper(Function&& func, Args&&... args)
-        : task_(std::bind(std::forward<Function>(func), std::forward<Args>(args)...)) {
+        : task_(std::bind(std::forward<Function>(func), std::forward<Args>(args)...))
+    {
     }
 
     void start() {
@@ -31,11 +39,13 @@ public:
         }
     }
 
-    void join() {
+    void join()
+    {
         pthread_join(thread_, nullptr);
     }
 
-    ReturnType getResult() {
+    ReturnType getResult()
+    {
         return result_.get();
     }
 
@@ -47,12 +57,14 @@ private:
 
 // Helper function to create and start the thread
 template <typename Function, typename... Args>
-ThreadWrapper<Function, Args...> makeThread(Function&& func, Args&&... args) {
+ThreadWrapper<Function, Args...> makeThread(Function&& func, Args&&... args)
+{
     return ThreadWrapper<Function, Args...>(std::forward<Function>(func), std::forward<Args>(args)...);
 }
 
 // Example function
-int exampleFunction(int a, double b) {
+int exampleFunction(int a, double b)
+{
     std::cout << "Function called with arguments: " << a << ", " << b << std::endl;
     return a + static_cast<int>(b);
 }
