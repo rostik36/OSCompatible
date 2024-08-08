@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include "OSCompatibleThread.h"
+#include "../OSCompatible.h"
 
 std::string NumberToString(size_t number, size_t digitsNum)
 {

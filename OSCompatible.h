@@ -1,5 +1,5 @@
 /**
-* @file OSCompatibleThread.h
+* @file Thread.h
 * @author Rostik
 * @brief 
 * @version 0.1
@@ -14,13 +14,17 @@
 #include <functional>
 #include <future>
 #include <any>
-
+#include "OSCompatible.hpp"
 
 #ifdef _WIN32       // Windows
 #include <windows.h>
 #else               // Linux
 #include <pthread.h>
 #endif
+
+
+namespace OSCompatible
+{
 
 // Define handle ThreadId type based on the operating system
 #ifdef _WIN32       // Windows
@@ -30,7 +34,7 @@ typedef pthread_t   ThreadId;
 #endif
 
 
-class OSCompatibleThread
+class Thread
 {
 public:
     /**
@@ -51,9 +55,9 @@ public:
 
 
     /**
-     * @brief Default constructor for the OSCompatibleThread class.
+     * @brief Default constructor for the Thread class.
      *
-     * Initializes the OSCompatibleThread object with default values.
+     * Initializes the Thread object with default values.
      * The m_thread handle is set to pthread_t(), indicating that the thread is 
      * not joinable.
      * The m_func pointer is set to nullptr, indicating that no function is 
@@ -63,17 +67,17 @@ public:
      * The std::promise is stored in a shared_ptr, and the std::future is 
      * stored as a member variable.
      *
-     * @note The default constructed OSCompatibleThread object is not joinable.
+     * @note The default constructed Thread object is not joinable.
      * @note The m_func pointer is set to nullptr, indicating that no function i
      * s associated with the thread.
      * @note The std::promise and std::future are used to handle the return 
      * value (if any) from the thread function.
      */
-    OSCompatibleThread();
+    Thread();
 
 
     /**
-     * @brief Constructor for the OSCompatibleThread class that takes a function
+     * @brief Constructor for the Thread class that takes a function
      * and its arguments.
      *
      * This constructor creates a new thread and executes the provided function
@@ -111,11 +115,11 @@ public:
      * functions with different argument types.
      */
     template <typename Function, typename... Args>
-    OSCompatibleThread(Function&& func, Args&&... args);
+    Thread(Function&& func, Args&&... args);
 
 
     /**
-     * @brief Constructor for the OSCompatibleThread class that takes a function,
+     * @brief Constructor for the Thread class that takes a function,
      *  its arguments, and thread properties.
      *
      * This constructor creates a new thread with the provided properties and 
@@ -155,26 +159,26 @@ public:
      * functions with different argument types.
      */
     template <typename Function, typename... Args>
-    OSCompatibleThread(const Properties& properties, Function&& func, Args&&... args);
+    Thread(const Properties& properties, Function&& func, Args&&... args);
 
 
     // Deleting copy constructor and assignment operator
-    OSCompatibleThread(const OSCompatibleThread&) = delete;
-    OSCompatibleThread& operator=(const OSCompatibleThread&) = delete;
+    Thread(const Thread&) = delete;
+    Thread& operator=(const Thread&) = delete;
 
     /**
-     * @brief Move constructor for the OSCompatibleThread class.
-     * This constructor moves the resources from another OSCompatibleThread object 
+     * @brief Move constructor for the Thread class.
+     * This constructor moves the resources from another Thread object 
      * to the newly created object.
      * After the move, the other object is left in a valid but unspecified state.
      *
-     * @param other The other OSCompatibleThread object from which to move the resources.
+     * @param other The other Thread object from which to move the resources.
      * @throws No exceptions are thrown by this constructor.
      */
-    OSCompatibleThread(OSCompatibleThread&& other) noexcept;
+    Thread(Thread&& other) noexcept;
 
 
-    OSCompatibleThread& operator=(OSCompatibleThread&& other) noexcept;
+    Thread& operator=(Thread&& other) noexcept;
 
 
     /**
@@ -226,7 +230,7 @@ public:
      *
      * @note A thread that has been detached is no longer joinable.
      *
-     * @note The default constructed OSCompatibleThread object is not joinable.
+     * @note The default constructed Thread object is not joinable.
      */
     bool joinable() const;
 
@@ -277,104 +281,6 @@ private:
     Properties m_properties; // Additional properties for the thread, if needed
 };
 
-
-
-template <typename Function, typename... Args>
-OSCompatibleThread::OSCompatibleThread(Function&& func, Args&&... args)
-    :
-    OSCompatibleThread()
-{
-    using ReturnType = std::invoke_result_t<Function, Args...>;
-
-    auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
-
-    m_func = [this, boundFunc]() {
-        try
-        {
-            if constexpr (std::is_void_v<ReturnType>)
-            {
-                boundFunc();
-                m_promise->set_value(std::any{});
-            }
-            else
-            {
-                m_promise->set_value(boundFunc());
-            }
-        }
-        catch (...)
-        {
-            m_promise->set_exception(std::current_exception());
-        }
-    };
-
-    if (m_func)
-    {
-        auto m_funcptr = new std::function<void()>(std::move(m_func));
-        
-        if (pthread_create(&thread_, nullptr, threadFuncWrapper, m_funcptr) != 0)
-        {
-            delete m_funcptr; // Clean up in case of error
-            throw std::runtime_error("Failed to create thread");
-        }
-    }
-    else
-    {
-        throw std::runtime_error("No function to execute in thread");
-    }
-}
-
-
-template <typename Function, typename... Args>
-OSCompatibleThread::OSCompatibleThread(const Properties& properties, Function&& func, Args&&... args)
-    :
-    m_thread(),
-    m_func(nullptr),
-    m_promise(std::make_shared<std::promise<std::any>>()),
-    m_future(m_promise->get_future()),
-    m_properties(properties)
-{
-    using ReturnType = std::invoke_result_t<Function, Args...>;
-
-    auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
-
-    m_func = [this, boundFunc]() {
-        try
-        {
-            if constexpr (std::is_void_v<ReturnType>)
-            {
-                boundFunc();
-                m_promise->set_value(std::any{});
-            }
-            else
-            {
-                m_promise->set_value(boundFunc());
-            }
-        }
-        catch (...)
-        {
-            m_promise->set_exception(std::current_exception());
-        }
-    };
-
-    if (m_func)
-    {
-        auto m_funcptr = new std::function<void()>(std::move(m_func));
-        #ifdef _WIN32   // Windows
-
-        #else
-        if (pthread_create(&thread_, nullptr, threadFuncWrapper, m_funcptr) != 0)
-        {
-            delete m_funcptr; // Clean up in case of error
-            throw std::runtime_error("Failed to create thread");
-        }
-        #endif
-
-    }
-    else
-    {
-        throw std::runtime_error("No function to execute in thread");
-    }
-}
-
+} // namespace
 
 #endif //__OS_COMPATIBLE_THREAD__
