@@ -12,7 +12,7 @@
 #define __OS_COMPATIBLE_THREAD__
 
 
-#include "OSCompatiable/thread.hpp"
+#include "OSCompatible/thread.hpp"
 
 
 namespace OSCompatible

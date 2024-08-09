@@ -1,20 +1,21 @@
 /**
-* @file Thread.h
-* @author Rostik
-* @brief 
-* @version 0.1
-* @date 2024-08-07
-* 
-* @copyright Copyright (c) 2024
-* 
-*/
-#ifndef __OS_COMPATIBLE_THREAD__
-#define __OS_COMPATIBLE_THREAD__
+ * @file thread.h
+ * 
+ * @brief Class to manage OS-compatible threads with priority, policy, and CPU 
+ * core assignment.
+ * 
+ * @author Rostik
+ * @version 0.1
+ * @date 2024-07-27
+ * @copyright Copyright (c) 2024
+ * 
+ */
+#ifndef __thread__
+#define __thread__
 
 #include <functional>
 #include <future>
 #include <any>
-#include "OSCompatible.hpp"
 
 #ifdef _WIN32       // Windows
 #include <windows.h>
@@ -26,17 +27,35 @@
 namespace OSCompatible
 {
 
-// Define handle ThreadId type based on the operating system
-#ifdef _WIN32       // Windows
-typedef DWORD       ThreadId;
-#else               // Linux
-typedef pthread_t   ThreadId;
-#endif
 
-
-class Thread
+/**
+ * @brief Class to manage OS-compatible threads with priority, policy, and CPU 
+ * core assignment.
+ * 
+ * This class provides a platform-independent interface for managing threads, 
+ * allowing the user to set thread priority, scheduling policy, and CPU core 
+ * assignment.
+ * 
+ * The class provides methods for initializing and starting a new thread, waiting 
+ * for the thread to finish, retrieving the thread's return value, setting thread 
+ * priority, scheduling policy, and CPU cores, and retrieving the thread's unique 
+ * identifier.
+ * 
+ * @note Supports both Windows and POSIX operating systems(Linux).
+ * 
+ * @warning Don't allocate many OSCompatible thread on the stack, stack can run 
+ * out and you will receive segmentation fault or some unexpected behavior.
+ */
+class thread
 {
 public:
+    // Define handle threadId type based on the operating system
+    #ifdef _WIN32       // Windows
+    typedef DWORD       threadId;
+    #else               // Linux
+    typedef pthread_t   threadId;
+    #endif
+
     /**
      * @brief Structure to hold thread properties such as priority, policy, and
      * CPU affinity (CPU cores to which the thread pinned and will be running on).
@@ -46,7 +65,7 @@ public:
         int priority;
         int policy;
         std::vector<bool> affinity; // CPU affinity (CPU cores to which the thread pinned and will be running on)
-    }
+    };
 
     const int DEFAULT_PRIORITY = 255;
     const int DEFAULT_POLICY = 255;
@@ -55,9 +74,9 @@ public:
 
 
     /**
-     * @brief Default constructor for the Thread class.
+     * @brief Default constructor for the thread class.
      *
-     * Initializes the Thread object with default values.
+     * Initializes the thread object with default values.
      * The m_thread handle is set to pthread_t(), indicating that the thread is 
      * not joinable.
      * The m_func pointer is set to nullptr, indicating that no function is 
@@ -67,17 +86,17 @@ public:
      * The std::promise is stored in a shared_ptr, and the std::future is 
      * stored as a member variable.
      *
-     * @note The default constructed Thread object is not joinable.
+     * @note The default constructed thread object is not joinable.
      * @note The m_func pointer is set to nullptr, indicating that no function i
      * s associated with the thread.
      * @note The std::promise and std::future are used to handle the return 
      * value (if any) from the thread function.
      */
-    Thread();
+    thread();
 
 
     /**
-     * @brief Constructor for the Thread class that takes a function
+     * @brief Constructor for the thread class that takes a function
      * and its arguments.
      *
      * This constructor creates a new thread and executes the provided function
@@ -115,11 +134,11 @@ public:
      * functions with different argument types.
      */
     template <typename Function, typename... Args>
-    Thread(Function&& func, Args&&... args);
+    thread(Function&& func, Args&&... args);
 
 
     /**
-     * @brief Constructor for the Thread class that takes a function,
+     * @brief Constructor for the thread class that takes a function,
      *  its arguments, and thread properties.
      *
      * This constructor creates a new thread with the provided properties and 
@@ -157,28 +176,38 @@ public:
      *
      * @note The constructor is marked as a template function to support 
      * functions with different argument types.
+     * 
+     *    
+     * @warning Windows does not support Policy, so policy will be ignored and not effect nothing.
+     * 
+     * @warning Linux will need privileges to set priority, policy and CPU cores
+     * @warning otherwise will return error about Operation not permitted. (use sudo)
+     * 
+     * @warning Don't allocate many OSCompatibleThread on the stack, stack can run out 
+     * @warning and you will receive segmentation fault or some unexpected behavior.
+     * 
      */
     template <typename Function, typename... Args>
-    Thread(const Properties& properties, Function&& func, Args&&... args);
+    thread(const Properties& properties, Function&& func, Args&&... args);
 
 
     // Deleting copy constructor and assignment operator
-    Thread(const Thread&) = delete;
-    Thread& operator=(const Thread&) = delete;
+    thread(const thread&) = delete;
+    thread& operator=(const thread&) = delete;
 
     /**
-     * @brief Move constructor for the Thread class.
-     * This constructor moves the resources from another Thread object 
+     * @brief Move constructor for the thread class.
+     * This constructor moves the resources from another thread object 
      * to the newly created object.
      * After the move, the other object is left in a valid but unspecified state.
      *
-     * @param other The other Thread object from which to move the resources.
+     * @param other The other thread object from which to move the resources.
      * @throws No exceptions are thrown by this constructor.
      */
-    Thread(Thread&& other) noexcept;
+    thread(thread&& other) noexcept;
 
 
-    Thread& operator=(Thread&& other) noexcept;
+    thread& operator=(thread&& other) noexcept;
 
 
     /**
@@ -230,7 +259,7 @@ public:
      *
      * @note A thread that has been detached is no longer joinable.
      *
-     * @note The default constructed Thread object is not joinable.
+     * @note The default constructed thread object is not joinable.
      */
     bool joinable() const;
 
@@ -273,7 +302,7 @@ private:
         return nullptr;
     }
 
-    ThreadId m_thread; // Thread handle
+    threadId m_thread; // thread handle
     std::function<void()> m_func;
     // used for the return value (if exists)
     std::shared_ptr<std::promise<std::any>> m_promise;
@@ -281,6 +310,200 @@ private:
     Properties m_properties; // Additional properties for the thread, if needed
 };
 
-} // namespace
 
-#endif //__OS_COMPATIBLE_THREAD__
+
+thread::thread()
+    : 
+    m_thread(),
+    m_func(nullptr),
+    m_promise(std::make_shared<std::promise<std::any>>()),
+    m_future(m_promise->get_future()),
+    m_properties(DEFAULT_PROPERTIES)
+{ }
+
+
+template <typename Function, typename... Args>
+thread::thread(Function&& func, Args&&... args)
+    :
+    thread()
+{
+    using ReturnType = std::invoke_result_t<Function, Args...>;
+
+    auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+
+    m_func = [this, boundFunc]() {
+        try
+        {
+            if constexpr (std::is_void_v<ReturnType>)
+            {
+                boundFunc();
+                m_promise->set_value(std::any{});
+            }
+            else
+            {
+                m_promise->set_value(boundFunc());
+            }
+        }
+        catch (...)
+        {
+            m_promise->set_exception(std::current_exception());
+        }
+    };
+
+    if (m_func)
+    {
+        auto m_funcptr = new std::function<void()>(std::move(m_func));
+        
+        if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+        {
+            delete m_funcptr; // Clean up in case of error
+            throw std::runtime_error("Failed to create thread");
+        }
+    }
+    else
+    {
+        throw std::runtime_error("No function to execute in thread");
+    }
+}
+
+
+template <typename Function, typename... Args>
+thread::thread(const Properties& properties, Function&& func, Args&&... args)
+    :
+    m_thread(),
+    m_func(nullptr),
+    m_promise(std::make_shared<std::promise<std::any>>()),
+    m_future(m_promise->get_future()),
+    m_properties(properties)
+{
+    using ReturnType = std::invoke_result_t<Function, Args...>;
+
+    auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+
+    m_func = [this, boundFunc]() {
+        try
+        {
+            if constexpr (std::is_void_v<ReturnType>)
+            {
+                boundFunc();
+                m_promise->set_value(std::any{});
+            }
+            else
+            {
+                m_promise->set_value(boundFunc());
+            }
+        }
+        catch (...)
+        {
+            m_promise->set_exception(std::current_exception());
+        }
+    };
+
+    if (m_func)
+    {
+        auto m_funcptr = new std::function<void()>(std::move(m_func));
+        #ifdef _WIN32   // Windows
+
+        #else
+        if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+        {
+            delete m_funcptr; // Clean up in case of error
+            throw std::runtime_error("Failed to create thread");
+        }
+        #endif
+
+    }
+    else
+    {
+        throw std::runtime_error("No function to execute in thread");
+    }
+}
+
+
+
+
+
+
+
+
+
+thread::thread(thread&& other) noexcept
+    :
+    m_thread(other.m_thread),
+    m_func(std::move(other.m_func)),
+    m_promise(std::move(other.m_promise)),
+    m_future(std::move(other.m_future))
+{
+    other.m_thread = pthread_t();
+}
+
+
+thread& thread::operator=(thread&& other) noexcept
+{
+    if (this != &other)
+    {
+        if (joinable())
+        {
+            join();
+        }
+
+        m_thread = other.m_thread;
+        m_func = std::move(other.m_func);
+        m_promise = std::move(other.m_promise);
+        m_future = std::move(other.m_future);
+        other.m_thread = pthread_t(); // Reset other's thread handle
+    }
+    return *this;
+}
+
+
+void thread::join()
+{
+    if (pthread_join(m_thread, nullptr) != 0)
+    {
+        throw std::runtime_error("Failed to join thread");
+    }
+    m_thread = pthread_t(); // Reset the thread handle
+}
+
+
+void thread::detach()
+{
+#ifdef _WIN32   // Windows
+
+    if (CloseHandle(reinterpret_cast<HANDLE>(m_thread)) == FALSE)
+    {
+        throw std::runtime_error("Failed to close thread handle");
+    }
+    
+    m_thread = nullptr; // Reset the thread handle
+
+
+#else           // Linux
+
+    if (pthread_detach(m_thread) != 0)
+    {
+        throw std::runtime_error("Failed to detach thread");
+    }
+    
+    m_thread = pthread_t(); // Reset the thread handle
+#endif
+}
+
+
+bool thread::joinable() const
+{
+    return m_thread != pthread_t();
+}
+
+
+std::any thread::getResult()
+{
+    return m_future.get();
+}
+
+
+}
+
+
+#endif //__thread__

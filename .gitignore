@@ -1,18 +1,25 @@
+# Ignore all
 *
 
+# Except the following files in format
 !*.h
+!*.hpp
 !*.cpp
 
-!include
-!src
-!tests
+# Except the following files
 !CMakeLists.txt
+!README.md
+!.gitignore
+
+# Except when following directories
+!include
+!include/OSCompatible
+
+!examples
+!tests
 
 !.vscode
 !.vscode/*
+
 !vendor
 !vendor/gtest
-
-!README.md
-
-!.gitignore
