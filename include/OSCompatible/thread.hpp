@@ -5,7 +5,7 @@
  * core assignment.
  * 
  * @author Rostik
- * @version 0.1
+ * @version 0.4
  * @date 2024-07-27
  * @copyright Copyright (c) 2024
  * 
@@ -67,10 +67,10 @@ public:
         std::vector<bool> affinity; // CPU affinity (CPU cores to which the thread pinned and will be running on)
     };
 
-    const int DEFAULT_PRIORITY = 255;
-    const int DEFAULT_POLICY = 255;
-    const std::vector<bool> DEFAULT_AFFINITY = {}; // No CPU affinity (thread will be running on all available CPU cores)
-    const Properties DEFAULT_PROPERTIES = {DEFAULT_PRIORITY, DEFAULT_POLICY, DEFAULT_AFFINITY};
+    static const int DEFAULT_PRIORITY;
+    static const int DEFAULT_POLICY;
+    static const std::vector<bool> DEFAULT_AFFINITY; // No CPU affinity (thread will be running on all available CPU cores)
+    static const Properties DEFAULT_PROPERTIES;
 
 
     /**
@@ -133,8 +133,12 @@ public:
      * @note The constructor is marked as a template function to support 
      * functions with different argument types.
      */
-    template <typename Function, typename... Args>
+    template <typename Function, typename... Args, typename = std::enable_if_t<std::is_invocable_v<Function, Args...>> >
     thread(Function&& func, Args&&... args);
+    // enable_if_t with std::is_invocable_v ensures that the function is 
+    // callable with the provided arguments.
+    // so the the deduction process done right, means the compiler will
+    // automatically find the correct template constructor for given arguments.
 
 
     /**
@@ -312,6 +316,15 @@ private:
 
 
 
+const int thread::DEFAULT_PRIORITY = 255;
+const int thread::DEFAULT_POLICY = 255;
+const std::vector<bool>  thread::DEFAULT_AFFINITY = {}; // No CPU affinity (thread will be running on all available CPU cores)
+const thread::Properties thread::DEFAULT_PROPERTIES = {DEFAULT_PRIORITY, DEFAULT_POLICY, DEFAULT_AFFINITY};
+
+
+
+
+
 thread::thread()
     : 
     m_thread(),
@@ -322,106 +335,228 @@ thread::thread()
 { }
 
 
-template <typename Function, typename... Args>
+// template <typename Function, typename... Args>
+// thread::thread(Function&& func, Args&&... args)
+//     :
+//     thread()
+// {
+//     using ReturnType = std::invoke_result_t<Function, Args...>;
+
+//     auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+
+//     m_func = [this, boundFunc]() {
+//         try
+//         {
+//             if constexpr (std::is_void_v<ReturnType>)
+//             {
+//                 boundFunc();
+//                 m_promise->set_value(std::any{});
+//             }
+//             else
+//             {
+//                 m_promise->set_value(boundFunc());
+//             }
+//         }
+//         catch (...)
+//         {
+//             m_promise->set_exception(std::current_exception());
+//         }
+//     };
+
+//     if (m_func)
+//     {
+//         auto m_funcptr = new std::function<void()>(std::move(m_func));
+        
+//         if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+//         {
+//             delete m_funcptr; // Clean up in case of error
+//             throw std::runtime_error("Failed to create thread");
+//         }
+//     }
+//     else
+//     {
+//         throw std::runtime_error("No function to execute in thread");
+//     }
+// }
+
+
+// template <typename Function, typename... Args>
+// thread::thread(const Properties& properties, Function&& func, Args&&... args)
+//     :
+//     m_thread(),
+//     m_func(nullptr),
+//     m_promise(std::make_shared<std::promise<std::any>>()),
+//     m_future(m_promise->get_future()),
+//     m_properties(properties)
+// {
+//     using ReturnType = std::invoke_result_t<Function, Args...>;
+
+//     auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+
+//     m_func = [this, boundFunc]() {
+//         try
+//         {
+//             if constexpr (std::is_void_v<ReturnType>)
+//             {
+//                 boundFunc();
+//                 m_promise->set_value(std::any{});
+//             }
+//             else
+//             {
+//                 m_promise->set_value(boundFunc());
+//             }
+//         }
+//         catch (...)
+//         {
+//             m_promise->set_exception(std::current_exception());
+//         }
+//     };
+
+//     if (m_func)
+//     {
+//         auto m_funcptr = new std::function<void()>(std::move(m_func));
+//         #ifdef _WIN32   // Windows
+
+//         #else
+//         if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+//         {
+//             delete m_funcptr; // Clean up in case of error
+//             throw std::runtime_error("Failed to create thread");
+//         }
+//         #endif
+
+//     }
+//     else
+//     {
+//         throw std::runtime_error("No function to execute in thread");
+//     }
+// }
+
+template <typename Function, typename... Args, typename = std::enable_if_t<std::is_invocable_v<Function, Args...>> >
 thread::thread(Function&& func, Args&&... args)
-    :
-    thread()
+    : thread() // Call default constructor first
 {
     using ReturnType = std::invoke_result_t<Function, Args...>;
 
     auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
 
     m_func = [this, boundFunc]() {
-        try
-        {
-            if constexpr (std::is_void_v<ReturnType>)
-            {
+        try {
+            if constexpr (std::is_void_v<ReturnType>) {
                 boundFunc();
-                m_promise->set_value(std::any{});
-            }
-            else
-            {
+                m_promise->set_value({});
+            } else {
                 m_promise->set_value(boundFunc());
             }
-        }
-        catch (...)
-        {
+        } catch (...) {
             m_promise->set_exception(std::current_exception());
         }
     };
 
-    if (m_func)
-    {
-        auto m_funcptr = new std::function<void()>(std::move(m_func));
-        
-        if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
-        {
-            delete m_funcptr; // Clean up in case of error
-            throw std::runtime_error("Failed to create thread");
-        }
+    #ifdef _WIN32
+    // Windows-specific thread creation
+    m_thread = CreateThread(nullptr, 0, static_cast<LPTHREAD_START_ROUTINE>(threadFuncWrapper), &m_func, 0, nullptr);
+    if (m_thread == nullptr) {
+        throw std::runtime_error("Failed to create thread");
     }
-    else
-    {
-        throw std::runtime_error("No function to execute in thread");
+    #else
+    // POSIX-specific thread creation
+    if (pthread_create(&m_thread, nullptr, threadFuncWrapper, &m_func) != 0) {
+        throw std::runtime_error("Failed to create thread");
     }
+    #endif
 }
-
 
 template <typename Function, typename... Args>
 thread::thread(const Properties& properties, Function&& func, Args&&... args)
-    :
-    m_thread(),
-    m_func(nullptr),
-    m_promise(std::make_shared<std::promise<std::any>>()),
-    m_future(m_promise->get_future()),
-    m_properties(properties)
+    : thread(std::forward<Function>(func), std::forward<Args>(args)...)
 {
-    using ReturnType = std::invoke_result_t<Function, Args...>;
+    m_properties = properties;
 
-    auto boundFunc = std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+    #ifdef _WIN32
+    
+    #else
+    // On Linux, set the thread's scheduling policy, priority, and CPU affinity
+    struct sched_param sched;
+    sched.sched_priority = m_properties.priority;
 
-    m_func = [this, boundFunc]() {
-        try
-        {
-            if constexpr (std::is_void_v<ReturnType>)
-            {
-                boundFunc();
-                m_promise->set_value(std::any{});
-            }
-            else
-            {
-                m_promise->set_value(boundFunc());
-            }
-        }
-        catch (...)
-        {
-            m_promise->set_exception(std::current_exception());
-        }
-    };
-
-    if (m_func)
-    {
-        auto m_funcptr = new std::function<void()>(std::move(m_func));
-        #ifdef _WIN32   // Windows
-
-        #else
-        if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
-        {
-            delete m_funcptr; // Clean up in case of error
-            throw std::runtime_error("Failed to create thread");
-        }
-        #endif
-
+    if (pthread_setschedparam(m_thread, m_properties.policy, &sched) != 0) {
+        throw std::runtime_error("Failed to set thread priority and policy");
     }
-    else
-    {
-        throw std::runtime_error("No function to execute in thread");
-    }
+
+    
+    #endif
 }
 
 
+void thread::SetPriority(const thread::Properties& properties)
+{
+#ifdef _WIN32
+    
+#else   // Linux
+    struct sched_param sched;
+    sched.sched_priority = m_properties.priority;
+
+    if (pthread_setschedparam(m_thread, m_properties.policy, &sched) != 0)
+    {
+        throw std::runtime_error("Failed to set thread priority and policy");
+    }
+#endif
+}
 
 
+void thread::SetPolicy(const thread::Properties& properties)
+{
+#ifdef _WIN32
+    
+#else   // Linux
+    struct sched_param sched;
+    sched.sched_priority = m_properties.priority;
+
+    if (pthread_setschedparam(m_thread, m_properties.policy, &sched) != 0)
+    {
+        throw std::runtime_error("Failed to set thread priority and policy");
+    }
+#endif
+}
+
+void thread::SetAffinity(const thread::Properties& properties)
+{
+#ifdef _WIN32
+    if (!m_properties.affinity.empty())
+    {
+        DWORD_PTR mask = 0;
+
+        for (size_t i = 0; i < m_properties.affinity.size(); ++i)
+        {
+            if (m_properties.affinity[i])
+            {
+                mask |= (1 << i);
+            }
+        }
+
+        SetThreadAffinityMask(m_thread, mask);
+    }
+
+#else // Linux
+    if (!m_properties.affinity.empty())
+    {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+
+        for (size_t i = 0; i < m_properties.affinity.size(); ++i)
+        {
+            if (m_properties.affinity[i]) {
+                CPU_SET(i, &cpuset);
+            }
+        }
+
+        if (pthread_setaffinity_np(m_thread, sizeof(cpu_set_t), &cpuset) != 0)
+        {
+            throw std::runtime_error("Failed to set thread affinity");
+        }
+    }
+}
 
 
 

@@ -6,8 +6,6 @@
 
 
 
-
-
 // Example function
 int exampleFunction(int a, double b)
 {
@@ -17,6 +15,7 @@ int exampleFunction(int a, double b)
 
     return a + static_cast<int>(b);
 }
+
 
 void voidFunction(int a)
 {
@@ -32,6 +31,8 @@ bool boolFunction(int a)
     std::cout << "Void function called with argument: " << a << std::endl;
     return true;
 }
+
+
 
 
 int main()
@@ -70,6 +71,26 @@ int main()
     if (boolResult.has_value())
     {
         std::cout << "Result: " << std::any_cast<bool>(boolResult) << std::endl;
+    }
+
+
+    // Create thread with custom properties (priority, policy, affinity)
+    OSCompatible::thread::Properties properties = {
+        OSCompatible::thread::DEFAULT_PRIORITY,
+        OSCompatible::thread::DEFAULT_POLICY,
+        OSCompatible::thread::DEFAULT_AFFINITY
+    };
+
+    // Create and start the thread for a void function
+    OSCompatible::thread thread4(properties, boolFunction, 4277);
+
+    thread4.join();
+
+    // No result to retrieve for void function
+    std::any boolResult2 = thread4.getResult();
+    if (boolResult2.has_value())
+    {
+        std::cout << "Result: " << std::any_cast<bool>(boolResult2) << std::endl;
     }
 
     return 0;
