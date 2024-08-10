@@ -39,7 +39,7 @@ int main()
 {
     // Create and start the thread for a function with a return value
     OSCompatible::thread thread1(exampleFunction, 42, 3.14);
-
+    std::cout<< "Thread 1 started" << std::endl;
     thread1.join();
 
     // Retrieve the result
@@ -51,7 +51,7 @@ int main()
 
     // Create and start the thread for a void function
     OSCompatible::thread thread2(voidFunction, 42);
-
+    std::cout<< "Thread 2 started" << std::endl;
     thread2.join();
 
     // No result to retrieve for void function
