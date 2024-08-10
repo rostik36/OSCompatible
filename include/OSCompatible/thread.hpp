@@ -3,6 +3,7 @@
  * 
  * @brief Class to manage OS-compatible threads with priority, policy, and CPU 
  * core assignment.
+ * @note Supported since C++17, because used futures like std::any, std::invoke_result_t and std:Lis_invocable_v
  * 
  * @author Rostik
  * @version 0.4
@@ -45,6 +46,7 @@ namespace OSCompatible
  * identifier.
  * 
  * @note Supports both Windows and POSIX operating systems(Linux).
+ * @note Supported since C++17, because used futures like std::any, std::invoke_result_t and std:Lis_invocable_v
  * 
  * @warning Don't allocate many OSCompatible thread on the stack, stack can run 
  * out and you will receive segmentation fault or some unexpected behavior.
@@ -450,11 +452,11 @@ thread::thread()
 //         throw std::runtime_error("No function to execute in thread");
 //     }
 // }
+    // thread( DEFAULT_PROPERTIES,std::forward<Function>(func), std::forward<Args>(args)...) // call with default properties
 
 template <typename Function, typename... Args, typename = std::enable_if_t<std::is_invocable_v<Function, Args...>> >
 thread::thread(Function&& func, Args&&... args)
     :
-    // thread( DEFAULT_PROPERTIES,std::forward<Function>(func), std::forward<Args>(args)...) // call with default properties
     m_thread(),
 #ifdef _WIN32
     m_mutex(),
@@ -491,15 +493,6 @@ thread::thread(Function&& func, Args&&... args)
             m_promise->set_exception(std::current_exception());
         }
     };
-//     if (m_func)
-//     {
-//         auto m_funcptr = new std::function<void()>(std::move(m_func));
-        
-//         if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
-//         {
-//             delete m_funcptr; // Clean up in case of error
-//             throw std::runtime_error("Failed to create thread");
-//         }
 
     auto m_funcptr = new std::function<void()>(std::move(m_func));
     
