@@ -6,7 +6,7 @@
  * @note Supported since C++17, because used futures like std::any, std::invoke_result_t and std:Lis_invocable_v
  * 
  * @author Rostik
- * @version 1.0
+ * @version 1.3
  * @date 2024-07-27
  * @copyright Copyright (c) 2024
  * 
@@ -317,13 +317,14 @@ private:
         return nullptr;
     }
 
-    threadId m_thread; // thread handle
 #ifdef _WIN32
+    HANDLE m_handle;
     std::mutex m_mutex;
     std::condition_variable m_cv;
     bool m_releaseThread;
     bool m_propertiesInitialized = true;
 #else // Unix (Linux)
+    pthread_t m_handle;
     pthread_attr_t m_attr;
 #endif
     bool m_initialized;
@@ -347,9 +348,9 @@ const thread::Properties thread::DEFAULT_PROPERTIES = {DEFAULT_PRIORITY, DEFAULT
 thread::thread()
     : 
 #ifdef _WIN32
-    m_thread(nullptr),
+    m_handle(nullptr),
 #else   // Unix (Linux)
-    m_thread(),
+    m_handle(),
 #endif
     m_func(nullptr),
     m_promise(std::make_shared<std::promise<std::any>>()),
@@ -363,13 +364,13 @@ template <typename Function, typename... Args, typename = std::enable_if_t<std::
 thread::thread(Function&& func, Args&&... args)
     :
 #ifdef _WIN32
-    m_thread(nullptr),
+    m_handle(nullptr),
     m_mutex(),
     m_cv(),
     m_releaseThread(false),
     m_propertiesInitialized(true),
 #else   // Unix (Linux)
-    m_thread(),
+    m_handle(),
 #endif
     m_initialized(false),
     m_func(nullptr),
@@ -405,14 +406,14 @@ thread::thread(Function&& func, Args&&... args)
     
 #ifdef _WIN32
     // Windows-specific thread creation
-    m_thread = reinterpret_cast<threadId>( CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(threadFuncWrapper), m_funcptr, 0, nullptr) );
-    if (m_thread == reinterpret_cast<threadId>(nullptr) )
+    m_handle = CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(threadFuncWrapper), m_funcptr, 0, nullptr);
+    if (m_handle == nullptr)
     {
         throw std::runtime_error("Failed to create thread");
     }
 #else
     // POSIX-specific thread creation
-    if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+    if (pthread_create(&m_handle, nullptr, threadFuncWrapper, m_funcptr) != 0)
     {
         throw std::runtime_error(std::string("Failed to create thread :") + std::string(strerror(errno)));
     }
@@ -432,13 +433,13 @@ template <typename Function, typename... Args>
 thread::thread(const Properties& properties, Function&& func, Args&&... args)
     :
 #ifdef _WIN32
-    m_thread(nullptr),
+    m_handle(nullptr),
     m_mutex(),
     m_cv(),
     m_releaseThread(false),
     m_propertiesInitialized(false),
 #else   // Unix (Linux)
-    m_thread(),
+    m_handle(),
 #endif
     m_initialized(false),
     m_func(nullptr),
@@ -482,8 +483,8 @@ thread::thread(const Properties& properties, Function&& func, Args&&... args)
     auto m_funcptr = new std::function<void()>(std::move(m_func));
 
     // Windows-specific thread creation
-    m_thread = reinterpret_cast<threadId>( CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(threadFuncWrapper), m_funcptr, 0, nullptr) );
-    if (m_thread == reinterpret_cast<threadId>(nullptr))
+    m_handle = CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(threadFuncWrapper), m_funcptr, 0, nullptr);
+    if (m_handle == nullptr)
     {
         throw std::runtime_error("Failed to create thread");
     }
@@ -557,7 +558,7 @@ thread::thread(const Properties& properties, Function&& func, Args&&... args)
     auto m_funcptr = new std::function<void()>(std::move(m_func));
 
     // POSIX-specific thread creation
-    if (pthread_create(&m_thread, nullptr, threadFuncWrapper, m_funcptr) != 0)
+    if (pthread_create(&m_handle, nullptr, threadFuncWrapper, m_funcptr) != 0)
     {
         throw std::runtime_error("Failed to create thread: " + std::string(strerror(errno)));
     }
@@ -569,15 +570,15 @@ thread::thread(const Properties& properties, Function&& func, Args&&... args)
 
 thread::thread(thread&& other) noexcept
     :
-    m_thread(other.m_thread),
+    m_handle(other.m_handle),
     m_func(std::move(other.m_func)),
     m_promise(std::move(other.m_promise)),
     m_future(std::move(other.m_future))
 {
 #ifdef _WIN32
-    other.m_thread = reinterpret_cast<threadId>(nullptr); // Reset the thread handle
+    other.m_handle = nullptr; // Reset the thread handle
 #else
-    other.m_thread = pthread_t(); // Reset the thread handle
+    other.m_handle = pthread_t(); // Reset the thread handle
 #endif
 }
 
@@ -591,13 +592,14 @@ thread& thread::operator=(thread&& other) noexcept
             join();
         }
 
-        m_thread = other.m_thread;
+        m_handle = other.m_handle;
         m_func = std::move(other.m_func);
         m_promise = std::move(other.m_promise);
         m_future = std::move(other.m_future);
 #ifdef _WIN32
+        other.m_handle = nullptr;
 #else
-        other.m_thread = pthread_t(); // Reset other's thread handle
+        other.m_handle = pthread_t(); // Reset other's thread handle
 #endif
     }
     return *this;
@@ -607,19 +609,19 @@ thread& thread::operator=(thread&& other) noexcept
 void thread::join()
 {
 #ifdef _WIN32
-    if (WaitForSingleObject(reinterpret_cast<HANDLE>(m_thread), INFINITE) == WAIT_FAILED)
+    if (WaitForSingleObject(m_handle, INFINITE) == WAIT_FAILED)
     {
         throw std::runtime_error("Failed to join thread: " + std::string(reinterpret_cast<char*>(GetLastError())));
     }
-    CloseHandle(reinterpret_cast<HANDLE>(m_thread));
-    m_thread = reinterpret_cast<threadId>(nullptr); // Reset the thread handle
+    CloseHandle(m_handle);
+    m_handle = nullptr; // Reset the thread handle
 #else
-    std::cout << "Joining thread with ID: " << m_thread << std::endl;
-    if (pthread_join(m_thread, nullptr) != 0)
+    
+    if (pthread_join(m_handle, nullptr) != 0)
     {
         throw std::runtime_error("Failed to join thread:" + std::string(strerror(errno)));
     }
-    m_thread = pthread_t(); // Reset the thread handle
+    m_handle = pthread_t(); // Reset the thread handle
 #endif
 }
 
@@ -628,22 +630,22 @@ void thread::detach()
 {
 #ifdef _WIN32   // Windows
 
-    if (CloseHandle(reinterpret_cast<HANDLE>(m_thread)) == FALSE)
+    if (CloseHandle(m_handle) == FALSE)
     {
         throw std::runtime_error("Failed to close thread handle");
     }
     
-    m_thread = reinterpret_cast<threadId>(nullptr); // Reset the thread handle
+    m_handle = nullptr; // Reset the thread handle
 
 
 #else           // Linux
 
-    if (pthread_detach(m_thread) != 0)
+    if (pthread_detach(m_handle) != 0)
     {
         throw std::runtime_error("Failed to detach thread");
     }
     
-    m_thread = pthread_t(); // Reset the thread handle
+    m_handle = pthread_t(); // Reset the thread handle
 #endif
 }
 
@@ -652,9 +654,9 @@ bool thread::joinable() const
 {
     bool res;
 #ifdef _WIN32
-    res = m_thread != reinterpret_cast<threadId>(nullptr); // Reset the thread handle
+    res = m_handle != nullptr; // Reset the thread handle
 #else   // Unix (Linux)
-    re = m_thread != pthread_t();
+    res = m_handle != pthread_t();
 #endif
     return res;
 }
@@ -685,7 +687,7 @@ void thread::SetPriority(const thread::Properties& properties)
 
 #ifdef _WIN32
     // Set priority for Windows
-    if (SetThreadPriority( reinterpret_cast<HANDLE>(m_thread), properties.priority) == FALSE)
+    if (SetThreadPriority(m_handle, properties.priority) == FALSE)
     {
         throw std::runtime_error("Failed to set thread priority");
     }
@@ -747,7 +749,7 @@ void thread::SetAffinity(const thread::Properties& properties)
             return; // If all cores selected - nothing to do (its already the default behaviour)
         }
 
-        SetThreadAffinityMask(reinterpret_cast<HANDLE>(m_thread), mask);
+        SetThreadAffinityMask(m_handle, mask);
 
 
 #else // Linux
