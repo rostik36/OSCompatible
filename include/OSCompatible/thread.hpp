@@ -138,7 +138,7 @@ public:
      * @note The constructor is marked as a template function to support 
      * functions with different argument types.
      */
-    template <typename Function, typename... Args, typename = std::enable_if_t<std::is_invocable_v<Function, Args...>> >
+    template <typename Function, typename... Args, std::enable_if_t<std::is_invocable_v<Function, Args...>, int> = 0 >
     thread(Function&& func, Args&&... args);
     // enable_if_t with std::is_invocable_v ensures that the function is 
     // callable with the provided arguments.
@@ -360,7 +360,7 @@ thread::thread()
 
 
 
-template <typename Function, typename... Args, typename = std::enable_if_t<std::is_invocable_v<Function, Args...>> >
+template <typename Function, typename... Args, std::enable_if_t<std::is_invocable_v<Function, Args...>, int> >
 thread::thread(Function&& func, Args&&... args)
     :
 #ifdef _WIN32
@@ -611,7 +611,8 @@ void thread::join()
 #ifdef _WIN32
     if (WaitForSingleObject(m_handle, INFINITE) == WAIT_FAILED)
     {
-        throw std::runtime_error("Failed to join thread: " + std::string(reinterpret_cast<char*>(GetLastError())));
+        DWORD error = GetLastError();
+        throw std::runtime_error("Failed to join thread: " + std::to_string(static_cast<size_t>(GetLastError())));
     }
     CloseHandle(m_handle);
     m_handle = nullptr; // Reset the thread handle
@@ -739,7 +740,7 @@ void thread::SetAffinity(const thread::Properties& properties)
         {
             if (m_properties.affinity[i])
             {
-                mask |= (1 << i);
+                mask |= (static_cast<DWORD_PTR>(1) << i);
                 ++coresCnt;
             }
         }
