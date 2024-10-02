@@ -1,11 +1,18 @@
 # Minimum CMake version required
 cmake_minimum_required(VERSION 3.10)
 
-# Project name and version
-project(OSCompatibleLibrary VERSION 1.1)
 
-option(IncludeExamples, "Include OSCompatiable Examples" OFF)
-option(IncludeTests, "Include OSCompatiable Examples" OFF)
+set(PROJECT_NAME "OSCompatible")
+
+# Project name and version
+project(${PROJECT_NAME} VERSION 1.3.1)
+
+option(IncludeExamples "Include OSCompatiable Examples" OFF)
+option(IncludeTests "Include OSCompatiable Examples" OFF)
+
+
+# Create an interface library target
+add_library(${PROJECT_NAME} INTERFACE)
 
 
 if(IncludeExamples)
@@ -16,7 +23,9 @@ if(IncludeTests)
     add_subdirectory(tests)
 endif()
 
-# Include the dir to be visible for the target project
-target_include_directories(OSCompatiable PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+
+# Specify the include directories for the header files
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_SOURCE_DIR}/include)
+
+# Optionally, you can set properties like compile options if needed
+target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_17)
