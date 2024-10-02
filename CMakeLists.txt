@@ -7,8 +7,8 @@ set(PROJECT_NAME "OSCompatible")
 # Project name and version
 project(${PROJECT_NAME} VERSION 1.3.1)
 
-option(IncludeExamples "Include OSCompatiable Examples" OFF)
-option(IncludeTests "Include OSCompatiable Examples" OFF)
+option(${PROJECT_NAME}_IncludeExamples "Include OSCompatiable Examples" OFF)
+option(${PROJECT_NAME}_IncludeTests "Include OSCompatiable Examples" OFF)
 
 
 # Create an interface library target
