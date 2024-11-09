@@ -39,6 +39,24 @@
             "problemMatcher": [
                 "$gcc"
             ],
+        },
+        { // TODO: correct config for windows
+            "label": "Build UnitTests Debug",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/Build/Debug",
+                "--target",
+                "OSCompatibleUnitTests",
+                "--verbose"
+            ],
+            // "options": {
+            //     "cwd": "${fileDirname}"
+            // },
+            "problemMatcher": [
+                "$gcc"
+            ],
         }
     ],
     "version": "2.0.0"

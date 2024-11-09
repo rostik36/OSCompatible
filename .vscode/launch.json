@@ -70,6 +70,33 @@
             "windows": {
                 "MIMode": "gdb"
             }
+        },
+        { // TODO: correct the following configuration for windows
+            "name": "Debug UnitTests (windows)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Build/Debug/OSCompatibleUnitTests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/Build/Debug",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build UnitTests Debug",
+            // "linux": {
+            //     "miDebuggerPath": "/home/pcr/.configurations/gdb",
+            //     "program": "${workspaceFolder}/main_windows"
+            // },
+            // "windows": {
+            //     "MIMode": "gdb"
+            // }
         }
     ]
 }

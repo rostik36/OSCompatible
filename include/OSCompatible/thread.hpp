@@ -6,13 +6,14 @@
  * @note Supported since C++17, because used futures like std::any, std::invoke_result_t and std:Lis_invocable_v
  * 
  * @author Rostik
- * @version 1.3.1
+ * @version 1.3.2
  * @date 2024-07-27
  * @copyright Copyright (c) 2024
  * 
  */
 #ifndef __thread__
 #define __thread__
+#include <atomic>
 #include <type_traits> // is_invocable_v
 #include <functional>
 #include <future>
@@ -321,7 +322,7 @@ private:
     HANDLE m_handle;
     std::mutex m_mutex;
     std::condition_variable m_cv;
-    bool m_releaseThread;
+    std::atomic<bool> m_releaseThread;
     bool m_propertiesInitialized = true;
 #else // Unix (Linux)
     pthread_t m_handle;
@@ -453,11 +454,13 @@ thread::thread(const Properties& properties, Function&& func, Args&&... args)
 
 
 #ifdef _WIN32
+    m_releaseThread.store(false);
+
     m_func = [this, boundFunc]()
     {
         // must set here barrier to wait until all the properties are initialized
         std::unique_lock<std::mutex> lock(m_mutex);
-        m_cv.wait(lock, [this]() { return m_releaseThread; });
+        m_cv.wait(lock, [this]() { return m_releaseThread.load(); });
 
         if(m_propertiesInitialized)
         {
@@ -497,13 +500,13 @@ thread::thread(const Properties& properties, Function&& func, Args&&... args)
         SetPriority(properties);
         SetAffinity(properties);
 
-        m_releaseThread = true;
+        m_releaseThread.store(true);
         m_propertiesInitialized = true;
         m_cv.notify_one(); // Release the waiting thread after setting properties
     }
     catch(std::exception& e)
     {
-        m_releaseThread = true;
+        m_releaseThread.store(true);
         m_propertiesInitialized = false; // Properties not setted correctly
         m_cv.notify_one(); // Release the waiting thread after failed setting properties
 

@@ -11,8 +11,11 @@
 #ifndef __OS_COMPATIBLE_THREAD__
 #define __OS_COMPATIBLE_THREAD__
 
-
+#include "OSCompatible/definitions.h"
 #include "OSCompatible/thread.hpp"
+#include "OSCompatible/socket.hpp"
+#include "OSCompatible/server.hpp"
+#include "OSCompatible/client.hpp"
 
 
 namespace OSCompatible

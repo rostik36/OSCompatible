@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "Debug",
+            "buildType": "Debug",
+            "buildDirectory": "Build/Debug"
+        },
+        {
+            "name": "Release",
+            "buildType": "Release",
+            "buildDirectory": "Build/Release"
+        },
+        {
+            "name": "RelWithDebInfo",
+            "buildType": "RelWithDebInfo"
+        },
+        {
+            "name": "MinSizeRel",
+            "buildType": "MinSizeRel"
+        }
+    ]
+}
