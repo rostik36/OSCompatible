@@ -6,7 +6,7 @@
  * @note Supported since C++17, because used futures like std::any, std::invoke_result_t and std:Lis_invocable_v
  * 
  * @author Rostik
- * @version 1.3
+ * @version 1.3.1
  * @date 2024-07-27
  * @copyright Copyright (c) 2024
  * 
